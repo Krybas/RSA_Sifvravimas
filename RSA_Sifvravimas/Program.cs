@@ -12,6 +12,8 @@ while (value)
 {
     if (IsPrime(p) && IsPrime(q))
     {
+        Console.WriteLine("Ivesti skaiciai tinka");
+        Console.WriteLine("-----------------------------");
         value = false;
     }
     else if (IsPrime(p) == false)
@@ -26,8 +28,9 @@ while (value)
         Console.Write("Iveskite is naujo q: ");
         q = Convert.ToInt32(Console.ReadLine());
     }
-    Console.WriteLine("Ivesti skaiciai tinka");
-} 
+
+}
+
 
 Console.Write("Iveskite teksta: ");
 string x = Console.ReadLine();
@@ -38,14 +41,71 @@ BigInteger fi = (p - 1) * (q - 1);
 BigInteger e = fE(fi);
 BigInteger d = fD(e, fi);
 
-BigInteger[] encrypted = Encrypt(x, n, e);
+Console.WriteLine("Ar norite issaugoti faile arba nuskaityti is failo? (Taip/Ne)");
+string choice = Console.ReadLine();
+switch (choice.ToLower())
+{
+    case "taip":
 
-string decrypted = Decrypt(encrypted, n, d);
+        Console.WriteLine("Pasirinkimas taip");
+        Console.WriteLine("-----------------------------");
 
-Console.WriteLine("-----------------------------");
-Console.WriteLine("Originalus tekstas: " + x);
-Console.WriteLine("Uzsifruotas tekstas: " + string.Join(",", encrypted));
-Console.WriteLine("Desifruotas tekstas: " + decrypted);
+        Console.WriteLine("Ar norite irasyti ir nuskaityti ar tik nuskaityti? (Nuskaityti/irasyti)");
+        string choice2 = Console.ReadLine();
+
+        switch (choice2.ToLower())
+        {
+            case "nuskaityti":
+                Console.WriteLine("Iveskite failo pavadinima: ");
+                string Fname2 = Console.ReadLine();
+
+                var result = ReadFromFile(Fname2);
+                BigInteger[] encryptedTextFromFile = result.Item1;
+                BigInteger nFromFile = result.Item2;
+
+                string decryptedText = Decrypt(encryptedTextFromFile, nFromFile, d);
+                Console.WriteLine("Desifruotas tekstas: " + decryptedText);
+                Console.WriteLine("Failas yra nuskaitytas");
+                Console.WriteLine("-----------------------------");
+                break;
+            case "irasyti":
+
+                Console.WriteLine("Iveskite failo pavadinima: ");
+                string Fname1 = Console.ReadLine();
+                BigInteger[] encryptedF = Encrypt(x, n, e);
+                WriteToFile(Fname1, encryptedF, n);
+                Console.WriteLine("Failas yra irasytas");
+                Console.WriteLine("-----------------------------");
+
+                var r = ReadFromFile(Fname1);
+                BigInteger[] TextFromFile = r.Item1;
+                BigInteger nFile = r.Item2;
+
+                string decrypted = Decrypt(TextFromFile, nFile, d);
+                Console.WriteLine("Desifruotas tekstas: " + decrypted);
+                break;
+            default:
+                Console.WriteLine("Nera tokio pasirinkimo");
+                break;
+        }
+        break;
+    case "ne":
+
+        Console.WriteLine("Pasirinkimas ne");
+        Console.WriteLine("-----------------------------");
+        ;
+        BigInteger[] encryptedC = Encrypt(x, n, e);
+        Console.WriteLine("Uzsifruotas tekstas: " + string.Join(",", encryptedC));
+
+        string decryptedC = Decrypt(encryptedC, n, d);
+        Console.WriteLine("Desifruotas tekstas: " + decryptedC);
+        break;
+
+    default:
+        Console.WriteLine("Nera tokio pasirinkimo");
+        break;
+}
+
 
 BigInteger fE(BigInteger fi)
 {
@@ -61,40 +121,57 @@ BigInteger fE(BigInteger fi)
 
 BigInteger fD(BigInteger e, BigInteger fi)
 {
-    BigInteger d = BigInteger.One;
+    BigInteger fi0 = fi;
+    BigInteger y = 0, x = 1;
 
-    while ((d * e) % fi != BigInteger.One)
+    if (fi == 1)
+        return 0;
+
+    while (e > 1)
     {
-        d++;
+        BigInteger q = e / fi;
+        BigInteger t = fi;
+
+        fi = e % fi;
+        e = t;
+        t = y;
+
+        y = x - q * y;
+        x = t;
     }
 
-    return d;
-}
+    if (x < 0)
+        x += fi0;
 
-BigInteger[] Encrypt(string text, BigInteger n, BigInteger e)
+    return x;
+}
+static BigInteger[] Encrypt(string text, BigInteger n, BigInteger e)
 {
     byte[] bytes = Encoding.Unicode.GetBytes(text);
     BigInteger[] encrypted = new BigInteger[bytes.Length];
 
     for (int i = 0; i < bytes.Length; i++)
     {
-        encrypted[i] = BigInteger.ModPow(bytes[i], (int)e, n);
+        BigInteger m = new BigInteger(bytes[i]);
+        encrypted[i] = BigInteger.ModPow(m, e, n);
     }
 
     return encrypted;
 }
-string Decrypt(BigInteger[] encrypted, BigInteger n, BigInteger d)
+
+static string Decrypt(BigInteger[] encrypted, BigInteger n, BigInteger d)
 {
     byte[] decryptedBytes = new byte[encrypted.Length];
 
     for (int i = 0; i < encrypted.Length; i++)
     {
-        decryptedBytes[i] = (byte)BigInteger.ModPow(encrypted[i], (int)d, n);
+        BigInteger decryptedBigInt = BigInteger.ModPow(encrypted[i], d, n);
+        decryptedBytes[i] = (byte)decryptedBigInt;
     }
 
     return Encoding.Unicode.GetString(decryptedBytes);
 }
-static bool IsPrime(BigInteger number)
+bool IsPrime(BigInteger number)
 {
     if (number <= 1)
         return false;
@@ -109,4 +186,33 @@ static bool IsPrime(BigInteger number)
             return false;
     }
     return true;
+}
+
+static void WriteToFile(string filename, BigInteger[] encrypted, BigInteger n)
+{
+    string file = filename + ".txt";
+    using (StreamWriter writer = new StreamWriter(file))
+    {
+        foreach (BigInteger num in encrypted)
+        {
+            writer.WriteLine(num.ToString());
+        }
+        writer.WriteLine(n.ToString());
+    }
+}
+
+static Tuple<BigInteger[], BigInteger> ReadFromFile(string filename)
+{
+    string file = filename + ".txt";
+    string[] lines = File.ReadAllLines(file);
+    BigInteger[] encrypted = new BigInteger[lines.Length - 1];
+
+    for (int i = 0; i < lines.Length - 1; i++)
+    {
+        encrypted[i] = BigInteger.Parse(lines[i]);
+    }
+
+    BigInteger nFromFile = BigInteger.Parse(lines[lines.Length - 1]);
+
+    return Tuple.Create(encrypted, nFromFile);
 }
